@@ -1,0 +1,31 @@
+#ifndef __BPF_HELPERS_H
+#define __BPF_HELPERS_H
+
+#include <stdint.h>
+#include <stddef.h>
+
+#ifndef SEC
+#define SEC(NAME) __attribute__((section(NAME), used))
+#endif
+
+#define BPF_MAP_TYPE_ARRAY   2
+#define BPF_MAP_TYPE_RINGBUF 27
+
+#ifndef __uint
+#define __uint(name, val) int (*name)[val]
+#endif
+
+#ifndef __type
+#define __type(name, val) typeof(val) *name
+#endif
+
+/* BPF Helper function prototypes mapped to kernel helper IDs */
+static uint64_t (*bpf_ktime_get_ns)(void) = (void *)5;
+static void *(*bpf_map_lookup_elem)(void *map, const void *key) = (void *)1;
+static uint64_t (*bpf_get_current_pid_tgid)(void) = (void *)14;
+static uint64_t (*bpf_get_current_uid_gid)(void) = (void *)15;
+static long (*bpf_probe_read_user)(void *dst, uint32_t size, const void *unsafe_ptr) = (void *)112;
+static void *(*bpf_ringbuf_reserve)(void *ringbuf, uint64_t size, uint64_t flags) = (void *)131;
+static void (*bpf_ringbuf_submit)(void *data, uint64_t flags) = (void *)132;
+
+#endif /* __BPF_HELPERS_H */

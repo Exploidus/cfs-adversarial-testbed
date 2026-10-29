@@ -1,0 +1,30 @@
+name: CI Testbed Qualification
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build tools and clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang llvm libelf-dev
+
+      - name: Build C testbed and BPF object
+        run: |
+          make clean
+          make all
+          make bpf
+
+      - name: Execute automated qualification scenarios
+        run: |
+          chmod +x run_tests.sh
+          ./run_tests.sh
