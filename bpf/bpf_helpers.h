@@ -1,8 +1,16 @@
 #ifndef __BPF_HELPERS_H
 #define __BPF_HELPERS_H
 
+#if defined(__bpf__) || defined(__TARGET_ARCH_x86)
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
+typedef unsigned long long uint64_t;
+typedef unsigned long size_t;
+#else
 #include <stdint.h>
 #include <stddef.h>
+#endif
 
 #ifndef SEC
 #define SEC(NAME) __attribute__((section(NAME), used))

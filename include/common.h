@@ -1,8 +1,19 @@
 #ifndef CFS_COMMON_H
 #define CFS_COMMON_H
 
+#if defined(__bpf__) || defined(__TARGET_ARCH_x86)
+#ifndef _BPF_FREESTANDING_TYPES
+#define _BPF_FREESTANDING_TYPES
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
+typedef unsigned long long uint64_t;
+typedef unsigned long size_t;
+#endif
+#else
 #include <stdint.h>
 #include <stddef.h>
+#endif
 
 #define CFS_MAGIC_HEADER       0x43465331 /* "CFS1" */
 #define CFS_PAYLOAD_MAX_LEN    256
