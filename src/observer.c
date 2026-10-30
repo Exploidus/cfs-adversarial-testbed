@@ -20,6 +20,8 @@ int cfs_executor_run_once(int sock, int effector_fd, int simulate_tamper);
 int test_same_uid_ptrace_defense(pid_t target_pid);
 int test_lost_event_detection(uint64_t expected_seq, uint64_t injected_seq, const struct cfs_effect_event *kernel_evt, int is_live);
 int test_tamper_evident_effect(int scenario_num, int kernel_probe_fired, int executor_claimed_success, const struct cfs_effect_event *kernel_evt, int is_live);
+int test_effect_completion_witness(int kernel_probe_verified, ssize_t witnessed_bytes, size_t expected_bytes, const struct cfs_effect_event *kernel_evt, int is_live);
+int test_ringbuffer_backpressure_qualification(int is_live);
 
 int main(void)
 {
@@ -75,11 +77,11 @@ int main(void)
                getuid(), pid);
     }
 
-    printf("[STEP 2] Initializing In-Kernel eBPF Tracepoint Effector Probe...\n");
+    printf("[STEP 2] Initializing In-Kernel eBPF Raw Tracepoint Effector Probe...\n");
     int probe_rc = cfs_probe_init("bpf/effect_monitor.bpf.o", pid);
     int is_live = cfs_probe_is_live();
     if (is_live) {
-        printf("  [PASS] Live kernel eBPF probe attached to tracepoint/syscalls/sys_enter_write.\n");
+        printf("  [PASS] Live kernel eBPF probe attached to raw_tracepoint/sys_enter (write filter).\n");
         printf("  [PASS] Kernel ringbuffer observer active with target PID=%d filter.\n", pid);
         printf("  [PASS] Strict verification mode active: Userland fallback DISABLED.\n\n");
     } else {
@@ -149,7 +151,7 @@ int main(void)
     /* Scenario 1: Same-UID ptrace defense */
     failures += test_same_uid_ptrace_defense(getpid());
 
-    /* Scenario 2: Sequence gap / lost event injection & ringbuffer backpressure */
+    /* Scenario 2: Sequence gap / lost event injection (Decoupled from ringbuffer backpressure) */
     printf("[DISPATCH] Dispatching out-of-order sequence gap (seq=5, skipping seq 2..4)...\n");
     cfs_dispatch_command(sv[0], 5, "GNC_ATTITUDE_TRIM");
 
@@ -162,7 +164,7 @@ int main(void)
     memset(&live_evt2, 0, sizeof(live_evt2));
     int has_evt2 = 0;
     if (is_live) {
-        has_evt2 = (cfs_probe_wait_for_seq(5, &live_evt2, 2000) == 0);
+        has_evt2 = (cfs_probe_wait_for_seq(5, &live_evt2, 3000) == 0);
     }
 
     failures += test_lost_event_detection(2, 5, has_evt2 ? &live_evt2 : NULL, is_live);
@@ -188,8 +190,12 @@ int main(void)
 
     failures += test_tamper_evident_effect(3, kernel_probe_fired, executor_claimed_success, NULL, is_live);
 
-    /* Scenario 4: Fully verified physical effect corroborated by kernel tracepoint */
-    failures += test_tamper_evident_effect(4, kernel_probe_verified, 1, &live_evt1, is_live);
+    /* Scenario 4: Distinguishing syscall entry from successful effect completion (Paired witness) */
+    size_t expected_bytes1 = sizeof(result.header) + result.header.payload_len;
+    failures += test_effect_completion_witness(kernel_probe_verified, n, expected_bytes1, &live_evt1, is_live);
+
+    /* Scenario 5: Ringbuffer backpressure qualification (Decoupled failure mode) */
+    failures += test_ringbuffer_backpressure_qualification(is_live);
 
     /* Shutdown child executor */
     close(sv[0]);
@@ -200,8 +206,10 @@ int main(void)
 
     printf("=================================================================\n");
     if (failures == 0) {
-        printf(" [QUALIFICATION SUCCESS] All 4 adversarial properties verified.  \n");
+        printf(" [QUALIFICATION SUCCESS] All 5 adversarial properties verified.  \n");
         printf(" Independent kernel observability binding confirmed by eBPF probe.\n");
+        printf(" Effect-side witness paired with in-kernel syscall tracepoint.\n");
+        printf(" Ringbuffer backpressure isolated from sequence discontinuity.\n");
         printf(" Zero userland fallbacks in live-kernel mode.\n");
     } else {
         printf(" [QUALIFICATION FAILED] %d adversarial scenarios failed.         \n", failures);

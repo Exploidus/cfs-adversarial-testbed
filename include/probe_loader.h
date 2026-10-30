@@ -20,6 +20,7 @@ int cfs_probe_wait_for_seq(uint64_t seq, struct cfs_effect_event *out, int timeo
 int cfs_probe_get_event_by_seq(uint64_t seq, struct cfs_effect_event *out);
 int cfs_probe_get_event_count(void);
 int cfs_probe_get_latest_event(struct cfs_effect_event *out);
+uint64_t cfs_probe_get_backpressure_drops(void);
 void cfs_probe_print_debug(void);
 void cfs_probe_cleanup(void);
 

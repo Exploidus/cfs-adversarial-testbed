@@ -4,6 +4,10 @@
 #if defined(__bpf__) || defined(__TARGET_ARCH_x86)
 #ifndef _BPF_FREESTANDING_TYPES
 #define _BPF_FREESTANDING_TYPES
+typedef signed char int8_t;
+typedef short int16_t;
+typedef int int32_t;
+typedef long long int64_t;
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
@@ -67,7 +71,8 @@ _Static_assert(sizeof(struct cfs_cmd_packet) == 288, "cfs_cmd_packet size mismat
 #endif
 
 /*
- * Kernel effector event emitted via eBPF ringbuffer (56 bytes, 8-byte aligned)
+ * Kernel effector event emitted via eBPF ringbuffer (64 bytes, 8-byte aligned)
+ * Incorporates effect-side witness and return qualification
  */
 struct cfs_effect_event
 {
@@ -80,15 +85,18 @@ struct cfs_effect_event
     uint32_t effector_id;
     uint32_t effect_hash;
     uint32_t lost_counter;
+    int32_t  syscall_ret;
+    uint32_t duration_ns;
     uint8_t  observed_syscall;
-    uint8_t  pad[3];
+    uint8_t  effect_completed;
+    uint8_t  pad[2];
     uint32_t reserved;
 };
 
 #ifdef __cplusplus
-static_assert(sizeof(struct cfs_effect_event) == 56, "cfs_effect_event size mismatch");
+static_assert(sizeof(struct cfs_effect_event) == 64, "cfs_effect_event size mismatch");
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
-_Static_assert(sizeof(struct cfs_effect_event) == 56, "cfs_effect_event size mismatch");
+_Static_assert(sizeof(struct cfs_effect_event) == 64, "cfs_effect_event size mismatch");
 #endif
 
 /*
@@ -98,9 +106,13 @@ static inline uint32_t cfs_crc32(const uint8_t *data, size_t length)
 {
     uint32_t crc = 0xFFFFFFFFU;
     for (size_t i = 0; i < length; ++i) {
-        crc ^= data[i];
+        crc ^= (uint32_t)data[i];
         for (int j = 0; j < 8; ++j) {
-            crc = (crc >> 1) ^ (0xEDB88320U & -(crc & 1));
+            if (crc & 1) {
+                crc = (crc >> 1) ^ 0xEDB88320U;
+            } else {
+                crc >>= 1;
+            }
         }
     }
     return ~crc;

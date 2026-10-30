@@ -201,6 +201,21 @@ int cfs_probe_get_latest_event(struct cfs_effect_event *out)
     return 0;
 }
 
+uint64_t cfs_probe_get_backpressure_drops(void)
+{
+    if (!g_bpf_obj)
+        return 0;
+    int fd = bpf_object__find_map_fd_by_name(g_bpf_obj, "debug_stats_map");
+    if (fd < 0)
+        return 0;
+    uint32_t key = 5; /* Calls dropped by ringbuf reserve full */
+    uint64_t val = 0;
+    if (bpf_map_lookup_elem(fd, &key, &val) == 0) {
+        return val;
+    }
+    return 0;
+}
+
 void cfs_probe_print_debug(void)
 {
     if (!g_bpf_obj)

@@ -3,8 +3,22 @@ name: CI Testbed Qualification
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'bpf/**'
+      - 'include/**'
+      - 'Makefile'
+      - 'run_tests.sh'
+      - '.github/workflows/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'bpf/**'
+      - 'include/**'
+      - 'Makefile'
+      - 'run_tests.sh'
+      - '.github/workflows/**'
 
 jobs:
   build-and-test:
