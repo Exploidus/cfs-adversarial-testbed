@@ -18,6 +18,7 @@ typedef unsigned long size_t;
 #define CFS_MAGIC_HEADER       0x43465331 /* "CFS1" */
 #define CFS_PAYLOAD_MAX_LEN    256
 #define CFS_REPLAY_FLAG        0xFFFFFFFFU
+#define CFS_FLAG_TAMPER_SIMULATE 0x80000000U
 
 /*
  * Verification verdicts for adversarial evaluation

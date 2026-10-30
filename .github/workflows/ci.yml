@@ -13,18 +13,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install build tools and clang
+      - name: Install build tools, clang, and libbpf
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential clang llvm libelf-dev gcc-multilib
+          sudo apt-get install -y build-essential clang llvm libelf-dev libbpf-dev zlib1g-dev gcc-multilib
 
       - name: Build C testbed and BPF object
         run: |
           make clean
           make all
-          make bpf
 
-      - name: Execute automated qualification scenarios
+      - name: Execute automated qualification scenarios with kernel BPF privileges
         run: |
           chmod +x run_tests.sh
-          ./run_tests.sh
+          sudo ./run_tests.sh

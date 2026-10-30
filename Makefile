@@ -1,16 +1,17 @@
 CC ?= gcc
 CFLAGS ?= -Wall -Wextra -O2 -Iinclude
+LDFLAGS ?= -lbpf -lelf -lz
 
 CLANG ?= clang
 BPF_CFLAGS ?= -O2 -g -target bpf -D__TARGET_ARCH_x86
 
-SRC = src/observer.c src/coordinator.c src/executor.c src/adversary.c
+SRC = src/observer.c src/coordinator.c src/executor.c src/adversary.c src/probe_loader.c
 BIN = cfs_testbed
 
-all: $(BIN)
+all: bpf $(BIN)
 
 $(BIN): $(SRC)
-	$(CC) $(CFLAGS) -o $@ $(SRC)
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDFLAGS)
 
 bpf: bpf/effect_monitor.bpf.o
 

@@ -16,6 +16,10 @@ typedef unsigned long size_t;
 #define SEC(NAME) __attribute__((section(NAME), used))
 #endif
 
+#ifndef __always_inline
+#define __always_inline inline __attribute__((always_inline))
+#endif
+
 #define BPF_MAP_TYPE_ARRAY   2
 #define BPF_MAP_TYPE_RINGBUF 27
 

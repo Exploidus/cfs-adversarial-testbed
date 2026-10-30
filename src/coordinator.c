@@ -76,7 +76,7 @@ int cfs_verify_peer(int sock, uid_t expected_uid, pid_t expected_pid)
     return 0;
 }
 
-int cfs_dispatch_command(int sock, uint64_t seq, const char *payload)
+int cfs_dispatch_command_flags(int sock, uint64_t seq, const char *payload, uint32_t flags)
 {
     struct cfs_cmd_packet pkt;
     memset(&pkt, 0, sizeof(pkt));
@@ -90,7 +90,7 @@ int cfs_dispatch_command(int sock, uint64_t seq, const char *payload)
     pkt.payload[payload_len] = '\0';
 
     pkt.header.magic = CFS_MAGIC_HEADER;
-    pkt.header.instance_id = 1;
+    pkt.header.instance_id = 1 | flags;
     pkt.header.monotonic_seq = seq;
     pkt.header.start_time_ns = get_boot_ns();
     pkt.header.payload_len = (uint32_t)payload_len;
@@ -104,4 +104,9 @@ int cfs_dispatch_command(int sock, uint64_t seq, const char *payload)
     }
 
     return 0;
+}
+
+int cfs_dispatch_command(int sock, uint64_t seq, const char *payload)
+{
+    return cfs_dispatch_command_flags(sock, seq, payload, 0);
 }

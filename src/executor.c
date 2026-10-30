@@ -65,13 +65,15 @@ int cfs_executor_run_once(int sock, int effector_fd, int simulate_tamper)
         return -1;
     }
 
-    if (simulate_tamper) {
+    if (simulate_tamper || (pkt.header.instance_id & CFS_FLAG_TAMPER_SIMULATE)) {
         /*
          * Adversarial simulation: Executor claims success in userland
          * but maliciously drops the actual kernel effector call.
          */
         printf("  [EXPLOIT SIMULATION] Compromised executor claims success for seq=%lu but suppresses kernel effector syscall!\n",
                (unsigned long)pkt.header.monotonic_seq);
+        uint32_t userland_ack = 1; /* Claims execution completed successfully */
+        send(sock, &userland_ack, sizeof(userland_ack), MSG_NOSIGNAL);
         return 0;
     }
 
@@ -84,6 +86,9 @@ int cfs_executor_run_once(int sock, int effector_fd, int simulate_tamper)
         perror("executor: write to effector");
         return -1;
     }
+
+    uint32_t userland_ack = 1;
+    send(sock, &userland_ack, sizeof(userland_ack), MSG_NOSIGNAL);
 
     return 0;
 }
