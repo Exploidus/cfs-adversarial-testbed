@@ -1,12 +1,12 @@
 # NASA cFS Community Architecture Proposal v0.1
 ## Technical Specification & Qualification Methodology (Independent Research)
 
-**Document Identifier:** `CFS-COMM-ARCH-PROP-TECH-v0.1`  
-**Normative Baseline Anchor:** `Exploidus/cfs-adversarial-testbed@cc63eb1` (`CFS-SEC-CONTRACT-v0.1`)  
-**Lead Technical Contributor:** Rahad Bhuiya ([@rahadbhuiya](https://github.com/rahadbhuiya))
-**Co-Author & Review Lead:** Thales Rangel ([@bonushora](https://github.com/bonushora))
-**Status:** DRAFT / WORKING BASELINE FOR COLLABORATIVE REVIEW  
-**Classification:** Independent Collaborative Research (Non-NASA Endorsement)  
+- **Document Identifier:** CFS-COMM-ARCH-PROP-TECH-v0.1
+- **Normative Baseline Anchor:** Exploidus/cfs-adversarial-testbed@cc63eb1 (CFS-SEC-CONTRACT-v0.1)
+- **Lead Technical Contributor:** Rahad Bhuiya ([@rahadbhuiya](https://github.com/rahadbhuiya))
+- **Co-Author & Review Lead:** Thales Rangel ([@bonushora](https://github.com/bonushora))
+- **Status:** DRAFT / WORKING BASELINE FOR COLLABORATIVE REVIEW
+- **Classification:** Independent Collaborative Research (Non-NASA Endorsement)
 
 ---
 
