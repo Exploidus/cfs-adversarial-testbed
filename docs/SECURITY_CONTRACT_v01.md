@@ -1,4 +1,4 @@
-# Platform-Independent Security Qualification Contract
+﻿# Platform-Independent Security Qualification Contract
 
 **Document ID:** CFS-SEC-CONTRACT-v0.1  
 **Status:** DRAFT / NOT_QUALIFIED  
@@ -464,23 +464,35 @@ qualification window have been independently established.
 
 #### Observation-Loss Mechanisms
 
-| Mechanism | Description | Example |
-|-----------|------------|---------|
-| **TXN-GAP** | A transaction sequence discontinuity: the observed sequence number is not the expected successor of the last accepted sequence number. | Sequence jumps from 3 to 7, gap of 3 |
-| **PROD-DROP** | A producer-side telemetry drop: the observation producer discarded an event before it entered the transport channel, due to buffer exhaustion or rate limiting. | eBPF ringbuf reserve fails, drop counter increments |
-| **CONS-LOSS** | A consumer-side loss: the observation consumer failed to read an event that was placed in the transport channel. | Userland ringbuffer read timeout |
-| **EOW-UNRESOLVED** | An end-of-window unresolved event: an event was in-flight at the close of the qualification window and its outcome cannot be determined. | Observer shutdown before all in-flight events drain |
+Observation loss must be categorized into distinct, non-conflated mechanisms reflecting where in the telemetry pipeline the gap occurred:
+
+| Mechanism | Pipeline Boundary | Description | Reference / Example |
+|---|---|---|---|
+| **TXN-GAP** | Channel Ingress | Transaction sequence discontinuity: observed sequence is not the expected successor of the last verified sequence number. | Ingress sequence jumps from 3 to 7 (gap of 3). |
+| **PROD-DROP** | Observation Producer | Discard of an observation event at the producer boundary before entering the transport channel (e.g. buffer exhaustion or rate-limit saturation). | eBPF ringbuffer reservation fails under burst; drop counter increments. |
+| **CONS-DELAY** | Observation Consumer | Delayed delivery: event is not retrieved within the nominal polling interval or read deadline, but remains queued in the transport channel and is subsequently retrieved and verified intact before window evaluation. | Reader scheduling latency where event arrives after read timeout but before window close. |
+| **CONS-LOSS** | Observation Consumer | Confirmed consumer loss: event was successfully placed into the transport channel by the producer, but was irrevocably lost before consumption due to verified transport overwrite, reader overrun, or queue corruption. | Consumer channel overrun counter increments, or consumer-side sequence skip confirmed against producer sequence. |
+| **CONS-UNRESOLVED** | Observation Consumer | Unresolved consumer status: a read deadline expired without confirmation from the transport channel whether the event was dropped or remains pending. Must transition to `EOW-UNRESOLVED` if not resolved prior to window closure. | Reader timeout where channel state is indeterminate at evaluation time. |
+| **EOW-UNRESOLVED** | Window Boundary | End-of-window unresolved event: an event remained in-flight or in an unconfirmed status at the close of the qualification window and its outcome cannot be definitively determined. | Observer shutdown or window close while in-flight transactions remain uncorroborated. |
 
 #### Normative Requirements
 
-- `[REQ-05.1]` The observer must maintain an independent, kernel-side monotonic sequence
-  counter. Any discontinuity must be attributed to TXN-GAP and recorded separately from
-  other loss mechanisms.
+- `[REQ-05.1]` The observer must maintain an independently trusted monotonic sequence
+  accounting mechanism that cannot be manipulated by the component under observation.
+  Any sequence discontinuity must be attributed to TXN-GAP and recorded separately from
+  other loss mechanisms. Kernel-side accounting (e.g. an in-kernel state map or eBPF
+  array counter on Linux) represents a platform-specific reference implementation; on
+  hypervisor, RTOS, or bare-metal targets, equivalent independently trusted accounting
+  (such as hypervisor memory pages or hardware register counters) must be provided.
 - `[REQ-05.2]` The observation producer must maintain an independent drop counter for
   events discarded before entering the transport channel (PROD-DROP). This counter must
   be readable independently of the sequence gap counter.
-- `[REQ-05.3]` The observation consumer must detect and record events that were placed
-  in the transport channel but not successfully read (CONS-LOSS).
+- `[REQ-05.3]` The observation consumer must explicitly distinguish between delayed
+  delivery (`CONS-DELAY`), confirmed channel loss (`CONS-LOSS`), and unresolved observation
+  status (`CONS-UNRESOLVED`). A simple read timeout must not be treated as confirmed loss
+  without corroborating transport channel evidence (e.g. consumer overrun counter increment
+  or transport sequence skip). Any unresolved consumer status remaining at window evaluation
+  must transition to `EOW-UNRESOLVED`.
 - `[REQ-05.4]` At the close of each qualification window, in-flight events that were
   not resolved must be recorded as EOW-UNRESOLVED.
 - `[REQ-05.5]` A qualification window containing any unresolved observation gap of any
@@ -502,12 +514,15 @@ qualification window have been independently established.
 
 #### Required Evidence
 
-- `[EVID-05.1]` TXN-GAP: Independent kernel-side lost-event counter per sequence gap,
-  derived from the kernel-side sequence state map.
+- `[EVID-05.1]` TXN-GAP: Independently trusted sequence discontinuity counter per sequence
+  gap, derived from the platform-specific trusted sequence state mechanism (e.g. kernel-side
+  sequence state map in Linux/eBPF reference adapter).
 - `[EVID-05.2]` PROD-DROP: Independent producer-side drop counter for the qualification
   window, derived from the observation producer's accounting mechanism.
-- `[EVID-05.3]` CONS-LOSS: Consumer-side record of transport channel events not
-  successfully read.
+- `[EVID-05.3]` Consumer observation record documenting: (a) confirmed consumer drops
+  corroborated by transport-layer drop/overrun metrics (`CONS-LOSS`), (b) delayed delivery
+  timestamps where events arrived after nominal deadline (`CONS-DELAY`), and (c) explicit
+  identification of unresolved observation timeouts (`CONS-UNRESOLVED`).
 - `[EVID-05.4]` EOW-UNRESOLVED: Explicit record of unresolved in-flight events at
   window close.
 - `[EVID-05.5]` A baseline test demonstrating zero PROD-DROP under normal load.
@@ -516,9 +531,9 @@ qualification window have been independently established.
 
 #### Acceptance Criteria
 
-- `[PASS-05.1]` A deliberate TXN-GAP is detected. The kernel-side lost-event counter
-  reflects the correct number of missing transactions. PROD-DROP, CONS-LOSS, and
-  EOW-UNRESOLVED counters are unaffected.
+- `[PASS-05.1]` A deliberate TXN-GAP is detected. The independently trusted lost-event
+  counter reflects the exact number of missing transactions. PROD-DROP, consumer-side
+  loss mechanisms, and EOW-UNRESOLVED counters are unaffected.
 - `[PASS-05.2]` Deliberate PROD-DROP saturation is demonstrated. The producer-side
   drop counter reflects the correct number of dropped events. TXN-GAP counter is
   unaffected.
@@ -537,6 +552,8 @@ qualification window have been independently established.
   detection capability without a separate adversarial saturation test.
 - `[FAIL-05.5]` Absence of observation is treated as proof of absence of effect without
   establishing observer coverage for the window.
+- `[FAIL-05.6]` Treating a consumer read timeout as confirmed loss (`CONS-LOSS`) without
+  corroborating transport channel evidence.
 
 #### Responsibility Boundaries
 
@@ -653,22 +670,18 @@ the evidence cannot be forged or suppressed by the component under evaluation.
 
 ### Qualification Ladder
 
-The following ladder defines four levels of assurance. A higher level subsumes all
-lower-level requirements.
+The following ladder defines four levels of assurance. A higher level subsumes all lower-level requirements.
 
 | Level | Name | Description |
-|-------|------|-------------|
-| **QL-1** | Structural | The specification compiles, deploys, and executes without error. |
-| **QL-2** | Functional | Positive acceptance criteria pass for all six invariants in the declared operating mode. |
-| **QL-3** | Adversarial | Adversarial acceptance criteria pass for all six invariants. Preventive and detective controls are independently evaluated. |
-| **QL-4** | Independently Reviewed | A qualified, independent reviewer has evaluated the requirement-to-test-to-evidence traceability matrix and confirmed the verdicts. |
+|---|---|---|
+| **QL-1** | Structural | The specification compiles, deploys, and executes without runtime or configuration faults. |
+| **QL-2** | Functional | Positive acceptance criteria pass for requirements in the declared operating mode.<br><br>- **Partial QL-2 Coverage**: Positive acceptance criteria demonstrated for an evaluated subset of normative requirements across one or more invariants, with all remaining capabilities explicitly tracked and flagged as `NOT_QUALIFIED`.<br>- **Full QL-2 Achievement**: Positive acceptance criteria independently demonstrated across **all 33 normative requirements for all six invariants** in the declared operating mode, with zero open requirement gaps. |
+| **QL-3** | Adversarial | Adversarial acceptance criteria pass for evaluated invariants. Preventive and detective controls are independently evaluated.<br><br>- **Partial QL-3 Capability**: Demonstrated adversarial rejection and tamper-evident detection for specific implemented threat scenarios.<br>- **Full QL-3 Achievement**: All adversarial acceptance criteria across all six invariants pass under both isolated and concurrent stress conditions. |
+| **QL-4** | Independently Reviewed | A qualified, independent reviewer has audited the full requirement-to-test-to-evidence traceability chain and verified that all normative requirements and open items have been satisfied. |
 
-The Linux/eBPF reference implementation has demonstrated **QL-2 and partial QL-3**
-as of commit `6c6e0e4`. Full QL-3 requires the four-mechanism observation-loss
-adversarial tests (SEC-INV-05 `[ADV-PASS-05.1]`, `[ADV-PASS-05.2]`) and the L4
-physical state witness (SEC-INV-04 `[ADV-PASS-04.3]`).
+As of commit `07a1959`, the Linux/eBPF reference implementation demonstrates **Partial QL-2 coverage** and **Partial QL-3 capability** across evaluated requirements. **Full QL-2 achievement** and **Full QL-3 achievement** remain **NOT_QUALIFIED** because several required capabilities (e.g., REQ-01.3 per-command authorization decisions, REQ-02.4 post-restart re-binding, REQ-03.3 pre-effect replay prevention, REQ-04.4 physical actuator state witness, REQ-05.2/05.6 adversarial ringbuffer saturation, and REQ-06.5 observer degradation detection) remain open.
 
-**QL-4 is IN PROGRESS** via the review process in this Draft PR.
+**QL-4 is IN PROGRESS** via the peer review process in this Draft PR.
 
 ### Evidence Traceability Process
 
@@ -678,52 +691,73 @@ Every qualification verdict must be traceable through the following chain:
 [NORMATIVE REQUIREMENT] --> [TEST CASE] --> [EVIDENCE RECORD] --> [VERDICT]
 ```
 
-A verdict without a complete chain is invalid. The requirement-to-test-to-evidence
-matrix in Section 5 implements this traceability.
+A verdict without a complete chain is invalid. The requirement-to-test-to-evidence matrix in Section 5 covers all 33 normative requirements defined in this specification.
 
 ---
 
-## 5. Requirement-to-Test-to-Evidence Matrix
+## 5. Requirement-to-Test-to-Evidence Traceability Matrix
 
-| Requirement | Test Case | Evidence Record | Demonstrated (Linux/eBPF) | Qualification Verdict |
-|-------------|-----------|-----------------|--------------------------|----------------------|
-| REQ-01.1 | TC-01-AUTH-POS | EVID-01.1: SO_PEERCRED record, UID=0, PID=executor | YES (CI run 41050876794) | PASS at QL-2 |
-| REQ-01.3 | TC-01-AUTHZ-POS | EVID-01.2: Authorization decision record | PARTIAL (identity only, not per-command authz) | NOT_QUALIFIED at QL-2 |
-| REQ-01.4 | TC-01-ADV-ID | EVID-01.3: Rejection of mismatched identity | YES (CI run 41050876794) | PASS at QL-3 |
-| REQ-02.1 | TC-02-INST-POS | EVID-02.1: Instance identifier in transaction header | YES (start_time_ns embedded) | PASS at QL-2 |
-| REQ-02.4 | TC-02-RESTART | EVID-02.3: New instance on restart | NOT DEMONSTRATED | NOT_QUALIFIED |
-| REQ-03.1 | TC-03-SEQ-POS | EVID-03.1: Monotonic sequence in kernel record | YES (CI run 41050876794) | PASS at QL-2 |
-| REQ-03.2 | TC-03-ADV-SUPPRESS | EVID-03.3: Suppressed execution detected | YES (CI run 41050876794) | PASS at QL-3 |
-| REQ-03.3 | TC-03-PREVENT | EVID-03.2: Replay rejected before effect | NOT INDEPENDENTLY DEMONSTRATED | NOT_QUALIFIED |
-| REQ-04.1 | TC-04-L1 | EVID-04.1: sys_enter_write tracepoint record | YES (CI run 41050876794) | PASS at QL-2 |
-| REQ-04.3 | TC-04-L3 | EVID-04.3: Sink byte absorption record | YES (CI run 41050876794) | PASS at QL-2 |
-| REQ-04.4 | TC-04-L4 | EVID-04.4: Physical state transition witness | NOT APPLICABLE (pipe effector, not physical actuator) | NOT_QUALIFIED for physical actuator |
-| REQ-05.1 | TC-05-TXN-GAP | EVID-05.1: TXN-GAP counter | YES (CI run 41050876794, seq gap of 3) | PASS at QL-3 |
-| REQ-05.2 | TC-05-PROD-DROP | EVID-05.2: PROD-DROP counter (saturation) | NOT DEMONSTRATED (baseline only) | NOT_QUALIFIED |
-| REQ-05.6 | TC-05-SAT-ADV | EVID-05.6: Adversarial saturation test | NOT DEMONSTRATED | NOT_QUALIFIED |
-| REQ-06.1 | TC-06-MODE | EVID-06.1: Mode indicator in report | YES (Live-Kernel mode reported) | PASS at QL-2 |
-| REQ-06.2 | TC-06-FAILCLOSED | EVID-06.3: NOT_QUALIFIED on missing evidence | YES (strict mode, zero fallback) | PASS at QL-3 |
-| REQ-06.5 | TC-06-DEGRADE | EVID-06.4: Observer degradation detected | NOT DEMONSTRATED | NOT_QUALIFIED |
+The following matrix maps every normative requirement across all six invariants to its corresponding qualification test case, independent evidence record, demonstration status on the Linux/eBPF reference implementation, and qualification verdict.
+
+| Requirement ID | Normative Requirement Summary | Test Case | Independent Evidence Record | Demonstrated (Linux/eBPF) | Qualification Verdict |
+|---|---|---|---|---|---|
+| **REQ-01.1** | Independent executor identity verification before dispatch | TC-01-AUTH-POS | EVID-01.1: Kernel `SO_PEERCRED` record (UID=0, PID=executor) | YES (CI run 41100184733) | PASS at Partial QL-2 |
+| **REQ-01.2** | Identity verification derived from tamper-evident source | TC-01-AUTH-FORGE | EVID-01.1: Kernel socket credentials immutable by unprivileged peer | YES (CI run 41100184733) | PASS at Partial QL-2 |
+| **REQ-01.3** | Per-command authorization decision bound to identity & payload | TC-01-AUTHZ-POS | EVID-01.2: Independent authorization decision record | PARTIAL (identity verified; per-command ACL not implemented) | **NOT_QUALIFIED** at QL-2 |
+| **REQ-01.4** | Immediate channel closure on authentication/authorization failure | TC-01-ADV-ID | EVID-01.3: Rejection of mismatched identity / unverified dispatch | YES (CI run 41100184733) | PASS at Partial QL-3 |
+| **REQ-01.5** | Immutable, independently auditable authorization decision record | TC-01-AUDIT-IMMUT | EVID-01.2: Audit log maintained outside executor address space | PARTIAL (coordinator log isolated; cryptographic audit chain open) | **NOT_QUALIFIED** at QL-2 |
+| **REQ-02.1** | Non-reusable platform-native instance identifier | TC-02-INST-POS | EVID-02.1: Lifecycle identifier embedded in transaction header | YES (CLOCK_BOOTTIME boot_ns bound) | PASS at Partial QL-2 |
+| **REQ-02.2** | Instance identifier independent of reusable userland PID/TID | TC-02-INST-DERIV | EVID-02.1: Nanosecond boot timestamp bound to kernel process creation | YES (CI run 41100184733) | PASS at Partial QL-2 |
+| **REQ-02.3** | Channel rejects commands with mismatched instance identifier | TC-02-INST-VERIFY | EVID-02.2: Channel rejection record on stale instance ID | PARTIAL (instance header embedded; rejection logic baseline only) | **NOT_QUALIFIED** at QL-2 |
+| **REQ-02.4** | Mandatory re-authorization and new instance identifier on restart | TC-02-RESTART | EVID-02.3: Invalidation of prior instance credentials following restart | NOT DEMONSTRATED | **NOT_QUALIFIED** |
+| **REQ-03.1** | Channel enforces monotonic 64-bit sequence numbers | TC-03-SEQ-POS | EVID-03.1: Monotonic sequence verified in observer record | YES (CI run 41100184733) | PASS at Partial QL-2 |
+| **REQ-03.2** | Sequence enforcement implemented outside executor control | TC-03-SEQ-BOUND | EVID-03.4: Channel state machine isolated in coordinator socketpair | YES (CI run 41100184733) | PASS at Partial QL-2 |
+| **REQ-03.3** | Pre-effect preventive rejection of replayed/unauthorized commands | TC-03-PREVENT | EVID-03.2: Replayed transaction rejected prior to physical effect | NOT INDEPENDENTLY DEMONSTRATED | **NOT_QUALIFIED** |
+| **REQ-03.4** | Independent observer records each transaction at/below syscall level | TC-03-OBS-SYS | EVID-04.1: In-kernel eBPF tracepoint probe on `raw_tracepoint/sys_enter` | YES (CI run 41100184733) | PASS at Partial QL-2 |
+| **REQ-03.5** | Discrepancy between executor self-report and observer detected | TC-03-ADV-SUPPRESS | EVID-03.3: Executor ack=1 detected as discrepant against zero kernel probe events | YES (CI run 41100184733) | PASS at Partial QL-3 |
+| **REQ-03.6** | Replayed transaction reaching detection boundary flagged | TC-03-ADV-REPLAY-DET | EVID-03.1: Out-of-order/replayed sequence comparison flags transaction | YES (CI run 41100184733) | PASS at Partial QL-3 |
+| **REQ-04.1** | L1: Syscall entry event recorded from independently trusted source | TC-04-L1 | EVID-04.1: `raw_tracepoint/sys_enter` event with PID, ktime, CRC32 | YES (CI run 41100184733) | PASS at Partial QL-2 |
+| **REQ-04.2** | L2: Syscall return value and byte count independently captured | TC-04-L2 | EVID-04.2: `sys_exit` tracepoint capturing return value and bytes written | NOT DEMONSTRATED (sys_enter entry count proxy only) | **NOT_QUALIFIED** at QL-2 |
+| **REQ-04.3** | L3: Effector sink independently confirms full byte absorption | TC-04-L3 | EVID-04.3: Effector pipe reader confirms absorbed bytes bound to transaction | YES (CI run 41100184733) | PASS at Partial QL-2 |
+| **REQ-04.4** | L4: Independent destination physical/logical state witness | TC-04-L4 | EVID-04.4: Independent physical actuator state transition witness | NOT APPLICABLE (pipe effector testbed; no physical actuator) | **NOT_QUALIFIED** for physical actuators |
+| **REQ-04.5** | Declared evidence level fixed in adapter, immutable by executor | TC-04-LEVEL-DECL | EVID-04.5: Harness configuration enforces declared L1+L3 level | YES (testbed configuration immutable by executor) | PASS at Partial QL-2 |
+| **REQ-04.6** | Qualification verdict bounded to independently demonstrated level | TC-04-LEVEL-ENFORCE | EVID-04.5: Strict qualification harness enforces L1+L3 ceiling | YES (zero claim of L4 in harness reports) | PASS at Partial QL-2 |
+| **REQ-05.1** | Independently trusted sequence discontinuity accounting (TXN-GAP) | TC-05-TXN-GAP | EVID-05.1: Independent sequence gap counter detects discontinuity | YES (CI run 41100184733, seq gap of 3 detected) | PASS at Partial QL-3 |
+| **REQ-05.2** | Independent producer drop counter for buffer saturation (PROD-DROP) | TC-05-PROD-DROP | EVID-05.2: Producer drop counter (eBPF ringbuf reserve failure) | NOT DEMONSTRATED (zero-drop baseline only) | **NOT_QUALIFIED** |
+| **REQ-05.3** | 3-state consumer observation accounting (DELAY, LOSS, UNRESOLVED) | TC-05-CONS-LOSS | EVID-05.3: Separation of CONS-DELAY, CONS-LOSS, and CONS-UNRESOLVED | NOT DEMONSTRATED (read timeout treated uniformly) | **NOT_QUALIFIED** |
+| **REQ-05.4** | In-flight transactions recorded as EOW-UNRESOLVED at window close | TC-05-EOW-UNRESOLVED | EVID-05.4: Formal EOW accounting ledger at qualification window boundary | NOT DEMONSTRATED | **NOT_QUALIFIED** |
+| **REQ-05.5** | Unclassified observation gap causes immediate UNQUALIFIED verdict | TC-05-GAP-UNQUAL | EVID-05.5: Fail-closed verdict on unclassified observation gap | YES (strict mode rejects unclassified missing events) | PASS at Partial QL-3 |
+| **REQ-05.6** | Adversarial saturation test producing non-zero PROD-DROP | TC-05-SAT-ADV | EVID-05.6: Deliberate producer saturation producing non-zero drop counts | NOT DEMONSTRATED | **NOT_QUALIFIED** |
+| **REQ-06.1** | Qualification harness explicitly reports operating mode | TC-06-MODE | EVID-06.1: Report explicitly indicates Live-Kernel mode | YES (Live-Kernel mode reported) | PASS at Partial QL-2 |
+| **REQ-06.2** | Fail-closed NOT_QUALIFIED verdict on missing evidence | TC-06-FAILCLOSED | EVID-06.3: Immediate NOT_QUALIFIED verdict on missing kernel event | YES (strict verification mode, zero fallback) | PASS at Partial QL-3 |
+| **REQ-06.3** | Every qualification verdict traceable to independent evidence source | TC-06-TRACEABLE | EVID-06.2: Every pass verdict bound to non-zero ktime_ns kernel event | YES (CI run 41100184733) | PASS at Partial QL-2 |
+| **REQ-06.4** | Untraceable verdicts declared invalid across all operating modes | TC-06-INVALID-VERDICT | EVID-06.2: Rejection of verdicts lacking independent evidence record | YES (harness error exit on absent evidence) | PASS at Partial QL-2 |
+| **REQ-06.5** | Observer degradation or silence during runtime detected and reported | TC-06-DEGRADE | EVID-06.4: Harness flags observer probe failure / silence as degraded | NOT DEMONSTRATED (initialization probe check only) | **NOT_QUALIFIED** |
+| **REQ-06.6** | Observer coverage window verified before negative proof evaluated | TC-06-COVERAGE | EVID-06.5: Explicit observer coverage window verified before negative proof | NOT DEMONSTRATED | **NOT_QUALIFIED** |
 
 ---
 
 ## 6. Reference Implementation Status
 
 The following table records the qualification status of each invariant against the
-Linux/eBPF reference implementation as of commit `6c6e0e4`.
+Linux/eBPF reference implementation as of commit `07a1959`.
 
-**Note:** "CI PASS" refers to the GitHub Actions test result. This is not equivalent
-to an independently reviewed qualification verdict. See the traceability matrix in
-Section 5 for the actual qualification status of individual requirements.
+> [!IMPORTANT]
+> **Normative Status Declaration:** In accordance with the fail-closed qualification policy
+> (SEC-INV-06) and the qualification ladder criteria (Section 4), **all six invariants retain
+> normative status DRAFT / NOT_QUALIFIED** until requirement-level evidence is complete across
+> all 33 normative requirements and independent review criteria (QL-4) are fully satisfied.
+> The "Demonstrated Implementation Scope" column reflects partial implementation progress under
+> testbed conditions, not full qualification achievement.
 
-| Invariant | ID | CI Test Result | Qualification Level Reached | Open Items |
-|---|---|---|---|---|
-| Authorization Before Dispatch | SEC-INV-01 | PASS | QL-2 (identity only) | Per-command authorization (REQ-01.3) not yet demonstrated |
-| Executor Identity and Instance Binding | SEC-INV-02 | PASS | QL-2 (baseline) | Restart scenario (REQ-02.4) not yet demonstrated |
-| Replay and Bypass Resistance | SEC-INV-03 | PASS | QL-2/QL-3 (detection) | Preventive rejection (REQ-03.3) not independently demonstrated |
-| Independently Verified Effect Completion | SEC-INV-04 | PASS | QL-2/QL-3 (L1+L3) | L4 physical state witness not applicable to pipe effector |
-| Observation-Loss Accounting | SEC-INV-05 | PASS | QL-2 (TXN-GAP) | PROD-DROP saturation adversarial test not yet demonstrated |
-| Fail-Closed Qualification | SEC-INV-06 | PASS | QL-3 | Observer degradation test (REQ-06.5) not yet demonstrated |
+| Invariant | ID | CI Test Status | Demonstrated Implementation Scope | Open Normative Items | Overall Invariant Status |
+|---|---|---|---|---|---|
+| Authorization Before Dispatch | SEC-INV-01 | PASS | Identity verification via kernel `SO_PEERCRED` (REQ-01.1, REQ-01.2, REQ-01.4) | REQ-01.3 (per-command authorization), REQ-01.5 (immutable audit chain) | **DRAFT / NOT_QUALIFIED** |
+| Executor Identity and Instance Binding | SEC-INV-02 | PASS | Platform-native instance binding via boot_ns (REQ-02.1, REQ-02.2) | REQ-02.3 (full instance verification), REQ-02.4 (post-restart invalidation) | **DRAFT / NOT_QUALIFIED** |
+| Replay and Bypass Resistance | SEC-INV-03 | PASS | Monotonic sequence (REQ-03.1), boundary separation (REQ-03.2), in-kernel observation (REQ-03.4), suppressed execution detection (REQ-03.5), replay detection (REQ-03.6) | REQ-03.3 (pre-effect preventive replay rejection) | **DRAFT / NOT_QUALIFIED** |
+| Independently Verified Effect Completion | SEC-INV-04 | PASS | Paired L1 syscall entry + L3 pipe sink byte absorption witness (REQ-04.1, REQ-04.3, REQ-04.5, REQ-04.6) | REQ-04.2 (L2 sys_exit witness), REQ-04.4 (L4 physical actuator state witness) | **DRAFT / NOT_QUALIFIED** |
+| Observation-Loss Accounting | SEC-INV-05 | PASS | Platform-independent TXN-GAP detection (REQ-05.1), unclassified gap rejection (REQ-05.5) | REQ-05.2 (producer drop counter), REQ-05.3 (3-state consumer loss accounting), REQ-05.4 (EOW accounting), REQ-05.6 (adversarial saturation) | **DRAFT / NOT_QUALIFIED** |
+| Fail-Closed Qualification | SEC-INV-06 | PASS | Explicit Live-Kernel mode (REQ-06.1), strict fail-closed rejection with zero userland fallback (REQ-06.2, REQ-06.3, REQ-06.4) | REQ-06.5 (observer degradation detection during runtime), REQ-06.6 (window coverage verification) | **DRAFT / NOT_QUALIFIED** |
 
 All other platforms (RTEMS, VxWorks, bare-metal): **NOT_QUALIFIED** (no evaluation performed).
 
@@ -791,3 +825,4 @@ The following are explicitly outside the scope of this contract:
 |---|---|---|---|
 | v0.1-draft | 2026-10-30 | Rahad Bhuiya (Exploidus Labs) | Initial draft of six invariants |
 | v0.1-r1 | 2026-10-30 | Rahad Bhuiya (Exploidus Labs) | Addressed review comments: separated authentication from authorization (INV-01), made instance binding platform-neutral (INV-02), separated preventive from detective controls (INV-03), added four-level effect completion model (INV-04), defined four distinct observation-loss mechanisms (INV-05), made fail-closed requirement platform-neutral (INV-06), added qualification ladder, requirement-to-test-to-evidence matrix, glossary, known implementation boundaries, and scope exclusions |
+
