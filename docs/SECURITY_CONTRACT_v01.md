@@ -1,13 +1,38 @@
-﻿# Platform-Independent Security Qualification Contract
+﻿﻿# Platform-Independent Security Qualification Contract
 
 **Document ID:** CFS-SEC-CONTRACT-v0.1  
-**Status:** DRAFT / NOT_QUALIFIED  
+**Baseline Status:** FROZEN DOCUMENTARY BASELINE (v0.1)  
+**Normative Invariants Status:** DRAFT / NOT_QUALIFIED (All 6 invariants)  
 **Reference Implementation:** [cfs-adversarial-testbed](https://github.com/Exploidus/cfs-adversarial-testbed) (Linux/eBPF)  
 **Discussion:** [nasa/cFS #1168](https://github.com/nasa/cFS/discussions/1168)  
-**Authors:** Rahad Bhuiya (Exploidus Labs)  
-**Reviewers:** Thales (bonushora)
+**Author:** Rahad Bhuiya (Exploidus Labs)  
+**Reviewer:** Thales (bonushora)  
+**Frozen Baseline Target:** PR branch `docs/security-contract-v01` (Baseline v0.1 freeze)
 
 ---
+
+> [!IMPORTANT]
+> ### v0.1 Documentary Baseline Record
+> This specification is frozen as the **v0.1 Documentary Baseline**.
+>
+> 1. **Documentary Stabilization vs. Demonstrated Security Guarantees:** Stabilization of this
+>    document establishes a consistent, platform-independent normative specification and
+>    traceability schema. It does **not** imply that all specified security guarantees have been
+>    empirically demonstrated or certified.
+> 2. **Normative Invariant Status:** All six security invariants (SEC-INV-01 through SEC-INV-06)
+>    strictly retain the normative status **DRAFT / NOT_QUALIFIED**. Full qualification requires
+>    independent verification against the acceptance criteria on the target platform without gaps.
+> 3. **Demonstrated Reference Scope:** The Linux/eBPF reference implementation demonstrates
+>    **Partial QL-2 coverage** and **Partial QL-3 capability** across evaluated requirements under
+>    isolated testbed conditions.
+> 4. **Open Requirement Gaps:** Full qualification remains open pending independent closure of:
+>    - `REQ-01.3` (Per-command authorization decisions)
+>    - `REQ-01.5` (Cryptographic audit chaining)
+>    - `REQ-02.3` / `REQ-02.4` (Full instance verification and post-restart re-binding)
+>    - `REQ-03.3` (Pre-effect preventive replay rejection)
+>    - `REQ-04.2` / `REQ-04.4` (L2 syscall return and L4 physical actuator state witnesses)
+>    - `REQ-05.2` / `REQ-05.3` / `REQ-05.4` / `REQ-05.6` (PROD-DROP, 3-state consumer loss accounting, and saturation)
+>    - `REQ-06.5` / `REQ-06.6` (Runtime observer degradation detection and coverage window accounting)
 
 > [!IMPORTANT]
 > Every invariant in this document carries status **DRAFT / NOT_QUALIFIED** until independently
@@ -286,9 +311,12 @@ occurred or was attempted. Replay detection alone does not constitute replay pre
 
 **Detective Controls:**
 
-- `[REQ-03.4]` An independent observer must record each transaction at or below the
-  kernel system call boundary, in a manner that cannot be suppressed by a compromised
-  executor process.
+- `[REQ-03.4]` An independent observer must record each transaction at an independently
+  trusted observation boundary appropriate to the protected operation, in a manner that
+  cannot be forged or suppressed by a compromised executor process. (Syscall-level tracing
+  such as in-kernel eBPF on Linux serves as a platform-specific reference adapter; on
+  microkernel, RTOS, or hypervisor platforms, the observation boundary may be established
+  at the microkernel capability IPC boundary, secure enclave monitor, or hypervisor trap layer.)
 - `[REQ-03.5]` A discrepancy between executor self-report and independent observer record
   must be detected and flagged as a qualification failure.
 - `[REQ-03.6]` A replayed transaction that reaches the detection boundary must be
@@ -713,7 +741,7 @@ The following matrix maps every normative requirement across all six invariants 
 | **REQ-03.1** | Channel enforces monotonic 64-bit sequence numbers | TC-03-SEQ-POS | EVID-03.1: Monotonic sequence verified in observer record | YES (CI run 41100184733) | PASS at Partial QL-2 |
 | **REQ-03.2** | Sequence enforcement implemented outside executor control | TC-03-SEQ-BOUND | EVID-03.4: Channel state machine isolated in coordinator socketpair | YES (CI run 41100184733) | PASS at Partial QL-2 |
 | **REQ-03.3** | Pre-effect preventive rejection of replayed/unauthorized commands | TC-03-PREVENT | EVID-03.2: Replayed transaction rejected prior to physical effect | NOT INDEPENDENTLY DEMONSTRATED | **NOT_QUALIFIED** |
-| **REQ-03.4** | Independent observer records each transaction at/below syscall level | TC-03-OBS-SYS | EVID-04.1: In-kernel eBPF tracepoint probe on `raw_tracepoint/sys_enter` | YES (CI run 41100184733) | PASS at Partial QL-2 |
+| **REQ-03.4** | Independent observer records each transaction at trusted observation boundary | TC-03-OBS-SYS | EVID-04.1: In-kernel eBPF tracepoint probe on `raw_tracepoint/sys_enter` | YES (CI run 41100184733) | PASS at Partial QL-2 |
 | **REQ-03.5** | Discrepancy between executor self-report and observer detected | TC-03-ADV-SUPPRESS | EVID-03.3: Executor ack=1 detected as discrepant against zero kernel probe events | YES (CI run 41100184733) | PASS at Partial QL-3 |
 | **REQ-03.6** | Replayed transaction reaching detection boundary flagged | TC-03-ADV-REPLAY-DET | EVID-03.1: Out-of-order/replayed sequence comparison flags transaction | YES (CI run 41100184733) | PASS at Partial QL-3 |
 | **REQ-04.1** | L1: Syscall entry event recorded from independently trusted source | TC-04-L1 | EVID-04.1: `raw_tracepoint/sys_enter` event with PID, ktime, CRC32 | YES (CI run 41100184733) | PASS at Partial QL-2 |
@@ -825,4 +853,5 @@ The following are explicitly outside the scope of this contract:
 |---|---|---|---|
 | v0.1-draft | 2026-10-30 | Rahad Bhuiya (Exploidus Labs) | Initial draft of six invariants |
 | v0.1-r1 | 2026-10-30 | Rahad Bhuiya (Exploidus Labs) | Addressed review comments: separated authentication from authorization (INV-01), made instance binding platform-neutral (INV-02), separated preventive from detective controls (INV-03), added four-level effect completion model (INV-04), defined four distinct observation-loss mechanisms (INV-05), made fail-closed requirement platform-neutral (INV-06), added qualification ladder, requirement-to-test-to-evidence matrix, glossary, known implementation boundaries, and scope exclusions |
+
 
