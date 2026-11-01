@@ -18,6 +18,9 @@ This proposal introduces an **independent, non-invasive community architecture c
 
 In strict adherence to our frozen documentary baseline (`CFS-SEC-CONTRACT-v0.1` at commit `cc63eb1`), this proposal does not advocate modifying the portable cFS core. Instead, it proposes clear architectural responsibility boundaries between mission flight code, platform security adapters, and independent verification harnesses.
 
+> [!NOTE]
+> **Conceptual Integration Scope:** The Platform Security Adapter Layer (PSAL) illustrated below represents a proposed conceptual arrangement for community evaluation, not an established or confirmed cFS integration design. Whether future security enforcement and mediation boundaries belong in the portable framework, OSAL, PSP, or an external adapter remains an open question for community architectural review.
+
 ```
 +-----------------------------------------------------------------------+
 |                 Mission Applications & Payloads (cFS Apps)            |
@@ -53,7 +56,7 @@ In strict adherence to our frozen documentary baseline (`CFS-SEC-CONTRACT-v0.1` 
 +-----------------------------------------------------------------------+
 |           Independent Effect Verification & Accounting Harness         |
 |   - 4-Level Effect Progression Audit (Invocation -> Physical State)   |
-|   - 4-Mechanism Observation-Loss Accounting                           |
+|   - Normative Observation-Loss Accounting (TXN-GAP, PROD-DROP, etc.)   |
 |   - Fail-Closed Qualification Engine (Default NOT_QUALIFIED)          |
 +-----------------------------------------------------------------------+
 ```
@@ -78,6 +81,9 @@ To ground the architectural requirements, the proposal analyzes five representat
 
 The architecture is anchored to the six platform-neutral security invariants defined in frozen contract `CFS-SEC-CONTRACT-v0.1` (`cc63eb1`). In strict accordance with the baseline, **all six invariants retain their normative status as DRAFT / NOT_QUALIFIED** until cross-platform flight qualification is independently proven.
 
+> [!IMPORTANT]
+> **Normative Authority & Traceability Baseline:** The 33-requirement traceability matrix and formal specification defined in frozen contract CFS-SEC-CONTRACT-v0.1 serves as the authoritative, normative source for all individual acceptance criteria, trust assumptions, and qualification verdicts. The summary below provides an architectural overview and must not be construed as superseding or replacing the 33-requirement normative matrix.
+
 ### 3.1 SEC-INV-01: Authorization Before Dispatch
 - **Status:** `DRAFT / NOT_QUALIFIED`
 - **Specification:** No command shall be dispatched to an executor unless two independent conditions are satisfied in sequence: first, the executor's identity has been verified by an independently trusted mechanism; second, an explicit authorization token matching the command transaction has been validated prior to release.
@@ -96,7 +102,7 @@ The architecture is anchored to the six platform-neutral security invariants def
 
 ### 3.5 SEC-INV-05: Observation-Loss Accounting
 - **Status:** `DRAFT / NOT_QUALIFIED`
-- **Specification:** Any gap in the observation record must be explicitly detected, quantified, attributed to a specific loss mechanism, and reported. Four distinct observation-loss mechanisms must be independently accounted for: probe buffer overflow, tracepoint detachment, transport congestion, and monitoring harness saturation.
+- **Specification:** Any gap in the observation record must be explicitly detected, quantified, attributed to a specific loss mechanism, and reported. In strict accordance with the frozen baseline, accounting must preserve the normative categories: **TXN-GAP** (transaction sequence discontinuity), **PROD-DROP** (producer-boundary discard), **CONS-DELAY / CONS-LOSS / CONS-UNRESOLVED** (consumer-stage delivery latency, verified channel loss, or indeterminate timeout), and **EOW-UNRESOLVED** (unresolved in-flight events at qualification window closure). Operational causes such as transport congestion, buffer saturation, or probe detachment are recognized as underlying physical triggers and must remain formally distinguishable from the accounting categories themselves.
 
 ### 3.6 SEC-INV-06: Fail-Closed Qualification
 - **Status:** `DRAFT / NOT_QUALIFIED`
@@ -111,9 +117,9 @@ To ensure non-invasive integration, architectural responsibilities are partition
 | Operational Tier | Defined Scope & Responsibilities | Explicit Exclusions & Prohibitions |
 | :--- | :--- | :--- |
 | **cFS Core Executive** | Deterministic scheduling, table management, standard CCSDS packet dispatch, EVS logging. | Strictly portable; zero platform-specific syscalls or security enforcement logic. |
-| **Platform Security Adapter (PSAL)** | Evaluates tokens before dispatch, verifies executor instance binding, rejects unauthorized commands. | Proposed conceptual adapter; must not alter portable cFS APIs or introduce breaking core changes. |
-| **Platform Enforcement Layer** | OS kernel / RTOS enforcement (futex primitives, eBPF probes, MMU access permissions). | Generic platform mechanism; decoupled from flight mission logic. |
-| **Independent Verification Harness** | Out-of-band effect confirmation, loss accounting, adversarial injection, qualification metrics. | Non-intrusive observation; must not introduce unbounded jitter into flight loops. |
+| **Platform Security Adapter (PSAL)** | Evaluates tokens before dispatch, verifies executor instance binding, rejects unauthorized commands. | Candidate conceptual abstraction under review; must not alter portable cFS APIs or assume unverified bypass resistance. |
+| **Platform Enforcement Layer** | Candidate OS kernel / RTOS primitives (futex primitives, eBPF probes, MMU access permissions). | Platform-specific mechanism under evaluation; decoupled from flight mission logic without unverified timing guarantees. |
+| **Independent Verification Harness** | Out-of-band effect confirmation, loss accounting, adversarial injection, qualification metrics. | Evaluated observation tooling; must not assume zero jitter impact without formal empirical qualification. |
 
 ---
 
@@ -121,21 +127,23 @@ To ensure non-invasive integration, architectural responsibilities are partition
 
 To evaluate whether the six invariants can be enforced and verified without modifying cFS core logic, a **Linux Reference Qualification Testbed** was constructed as an independent proof of concept.
 
-### 5.1 Prototype Implementation Mechanisms
-- **Non-Intrusive Kernel Observation:** Uses freestanding eBPF tracepoint probes on `sys_enter` / `sys_exit` to verify invocation boundaries without task preemption.
-- **Ringbuffer Telemetry Decoupling:** Implements a decoupled kernel ringbuffer (`bpf_ringbuf`) to ensure trace logging cannot induce backpressure or lock contention on real-time task queues.
-- **Tracepoint Decoupling (REQ-03.4):** Implemented in `cc63eb1`, ensuring that test harness monitors observe raw kernel state transitions independently of userspace report framing.
+### 5.1 Prototype Implementation Mechanisms (Evaluated Reference Candidates)
+- **Candidate Kernel Observation Tooling:** Evaluates freestanding eBPF tracepoint probes on sys_enter / sys_exit as a candidate mechanism to observe invocation boundaries without task preemption under isolated testbed conditions.
+- **Ringbuffer Telemetry Decoupling:** Evaluates kernel ringbuffer (pf_ringbuf) semantics intended to minimize backpressure or lock contention on real-time task queues (formal zero-jitter qualification remains subject to future multi-core benchmarking).
+- **Tracepoint Decoupling (REQ-03.4):** Implemented in cc63eb1, enabling test harness monitors to observe raw kernel state transitions independently of userspace report framing.
 
-### 5.2 Reference Feasibility Matrix (Prototype Observation)
+### 5.2 Reference Feasibility & Evidence Scope Matrix
 
-| Invariant Reference | Target Verification Mechanism | Demonstrated Reference Evidence (Linux Prototype) | Normative Qualification Status |
-| :--- | :--- | :--- | :--- |
-| **SEC-INV-01** | Token check prior to dispatch | Unauthorized SB transmit rejected with access denied | `DRAFT / NOT_QUALIFIED` |
-| **SEC-INV-02** | Instance identifier verification | Recycled task IDs rejected upon executor restart | `DRAFT / NOT_QUALIFIED` |
-| **SEC-INV-03** | Replay & nonce evaluation | Replayed command buffers detected by sequence check | `DRAFT / NOT_QUALIFIED` |
-| **SEC-INV-04** | 4-tier effect completion probe | Level 1 (invocation) separated from Level 4 (actuator state) | `DRAFT / NOT_QUALIFIED` |
-| **SEC-INV-05** | Loss mechanism accounting | Dropped ringbuffer entries quantified via counter map | `DRAFT / NOT_QUALIFIED` |
-| **SEC-INV-06** | Fail-closed evaluation logic | Missing or inconclusive traces default to `NOT_QUALIFIED` | `DRAFT / NOT_QUALIFIED` |
+The matrix below explicitly delineates proposed candidate mechanisms, partially demonstrated reference evidence under isolated testbed conditions, and remaining normative requirement gaps as defined in CFS-SEC-CONTRACT-v0.1:
+
+| Invariant Reference | Proposed Candidate Mechanism | Demonstrated Reference Scope (Linux Testbed) | Open Requirement Gaps (Unqualified) | Normative Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **SEC-INV-01** (Authorization) | Two-stage identity check + token validation prior to dispatch | Peer identity qualification via SO_PEERCRED on anonymous socketpair (Partial QL-2) | REQ-01.3 (Per-command authorization decisions), REQ-01.5 (Cryptographic audit chaining) | DRAFT / NOT_QUALIFIED |
+| **SEC-INV-02** (Instance Binding) | Platform-native non-reusable lifecycle token binding | Rejection of mismatched process descriptors across process boundaries (Partial QL-2) | REQ-02.3 / REQ-02.4 (Post-restart cryptographic re-binding & non-reusable boot timestamp derivation) | DRAFT / NOT_QUALIFIED |
+| **SEC-INV-03** (Replay & Bypass) | Monotonic sequence enforcement + independent tracepoint observer | Replay detection via sequence check & tamper-evident witness (Partial QL-3) | REQ-03.3 (Pre-effect preventive replay rejection prior to effector invocation) | DRAFT / NOT_QUALIFIED |
+| **SEC-INV-04** (Effect Completion) | 4-tier effect verification ( 	o L_4$) | Distinguishing $ (syscall entry) from $ (pipe sink absorption witness) | REQ-04.2 ($ syscall return byte count witness), REQ-04.4 ($ physical actuator state confirmation) | DRAFT / NOT_QUALIFIED |
+| **SEC-INV-05** (Observation Loss) | Multi-category telemetry accounting | Demonstration of isolated TXN-GAP sequence counter increment | REQ-05.2 (PROD-DROP counter), REQ-05.3 (3-state consumer accounting), REQ-05.6 (Adversarial saturation test) | DRAFT / NOT_QUALIFIED |
+| **SEC-INV-06** (Fail-Closed) | Explicit operating mode declaration with fail-closed default | Automated default to NOT_QUALIFIED on missing or degraded evidence | REQ-06.5 (Observer degradation detection), REQ-06.6 (Qualification window coverage accounting) | DRAFT / NOT_QUALIFIED |
 
 ---
 
