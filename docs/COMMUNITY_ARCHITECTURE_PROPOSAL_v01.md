@@ -141,7 +141,7 @@ To evaluate whether the six invariants can be enforced and verified without modi
 
 ## 6. Proposed Future Research Directions (Outside v0.1 Baseline)
 
-While the v0.1 community proposal is strictly bounded to the six core invariants, ongoing experimental implementations in native environments (such as the Exploidus OS capability microkernel port) suggest several promising avenues for future secondary research contracts:
+While the v0.1 community proposal is strictly bounded to the six core invariants, exploratory implementations in native experimental environments suggest several promising avenues for future secondary research contracts:
 
 - **Spatial & Temporal Memory Enclaves:** Hardware MMU-enforced process isolation preventing lateral memory inspection across distinct flight application pools.
 - **Forward-Secure Event Audit Chaining:** Cryptographic hash chains (e.g. BLAKE3 chaining) applied to cFE Event Services (EVS) logs to ensure forensic tamper-evidence.
@@ -149,6 +149,9 @@ While the v0.1 community proposal is strictly bounded to the six core invariants
 - **Autonomous Radiation Fault Containment:** Background cyclic redundancy scans detecting Single Event Upset (SEU) bit-flips with fail-silent thread quarantining.
 
 These extended topics are recognized as distinct architectural research areas and will be developed under separate candidate contracts, preserving the stability of the v0.1 baseline.
+
+> [!NOTE]
+> **Governance & Scope Boundary:** References to experimental environments such as the Exploidus OS capability microkernel port represent independent research initiatives by Rahad Bhuiya / Exploidus Labs and are explicitly categorized as exploratory future research directions. Inclusion or mention of Exploidus OS does not imply joint technical endorsement, demonstrated compliance with the six invariants, or completed security qualification. All such extended topics remain strictly outside the frozen v0.1 baseline.
 
 ---
 
