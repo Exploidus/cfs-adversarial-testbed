@@ -170,7 +170,7 @@ These extended topics are recognized as distinct architectural research areas an
 
 
 
-**Architectural Contributor:** Thales Rangel ([[@bonushora](https://github.com/bonushora)](https://github.com/bonushora))
+**Architectural Contributor:** Thales Rangel ([@bonushora](https://github.com/bonushora))
 
 
 
