@@ -168,159 +168,81 @@ These extended topics are recognized as distinct architectural research areas an
 ---
 ## 8. Architectural Framing and cFS Integration Rationale
 
-
-
 **Architectural Contributor:** Thales Rangel ([@bonushora](https://github.com/bonushora))
-
-
 
 **Contribution Type:** Architectural framing, cFS integration rationale, authority boundaries, and community review strategy.
 
-
-
 **Normative Reference:** `CFS-SEC-CONTRACT-v0.1`, frozen documentary baseline at commit `cc63eb13cc168a7ceca52ae703367065a0228643`.
-
-
 
 **Status:** WORKING DRAFT  -  Independent Collaborative Research.
 
-
-
 ### 8.1 Architectural Motivation: Contract-First Security
-
-
 
 Flight-software security requires more than identifying the process executing a command.
 
-
-
 A defensible security architecture must establish whether a specific operation was authorized, whether the intended executor instance performed it, whether unauthorized execution or replay could bypass preventive controls, and whether the intended effect was independently verified.
-
-
 
 These properties should not depend on any particular operating system, syscall interface, instrumentation framework, or telemetry transport.
 
-
-
 We therefore propose a **contract-first security architecture**, in which security properties and acceptance criteria are specified independently of the mechanisms used to enforce and observe them.
-
-
 
 The objective is not to introduce a universal enforcement implementation. Instead, it is to establish a consistent set of security invariants, responsibility boundaries, threat assumptions, and evidence requirements against which different platform implementations can be evaluated.
 
-
-
 The six normative invariants remain exactly those defined in the frozen `CFS-SEC-CONTRACT-v0.1` baseline.
-
-
 
 ### 8.2 cFS Integration Rationale
 
-
-
 The NASA Core Flight System (cFS) provides reusable flight-software services supported by portability abstractions, including the Operating System Abstraction Layer (OSAL) and Platform Support Package (PSP).
-
-
 
 A proposed security architecture should respect these existing abstractions rather than assume equivalent enforcement capabilities across different operating environments.
 
-
-
 In particular, the availability of Linux kernel instrumentation does not establish the availability of equivalent mechanisms on RTEMS, VxWorks, or other target platforms.
-
-
 
 We propose that potential integration be evaluated through four conceptual responsibility domains.
 
-
-
 **A. Portable Framework Boundary**
-
-
 
 The portable framework may provide abstract integration interfaces or extension points through which security requirements can be expressed.
 
-
-
 This proposal does not prescribe changes to the portable cFS core during the documentary phase.
-
-
 
 Whether additional interfaces belong in the framework, OSAL, PSP, or an external integration component remains a question for community architectural review.
 
-
-
 **B. Mission Authority Boundary**
-
-
 
 Mission-specific policy defines the authorized command types, protected targets, payload restrictions, execution constraints, recovery procedures, and required effect-completion semantics.
 
-
-
 Authentication of an executor must remain distinct from authorization of a particular operation.
-
-
 
 Authorization decisions must be bound to the exact protected action and relevant execution context.
 
-
-
 **C. Platform Enforcement and Observation Boundary**
-
-
 
 Each platform may implement the required preventive and detective controls using mechanisms appropriate to its operating environment.
 
-
-
 Such mechanisms may include operating-system facilities, trusted monitors, hypervisor mechanisms, or hardware-enforced isolation where available and justified.
-
-
 
 The proposed Platform Security Adapter Layer (PSAL) is a candidate architectural abstraction, not an established cFS component.
 
-
-
 Its authority, bypass resistance, timing impact, and relationship to existing portability interfaces require separate evaluation.
-
-
 
 **D. Independent Qualification Boundary**
 
-
-
 Qualification tooling evaluates whether a specific implementation satisfies the declared security requirements.
-
-
 
 The required evidence must be independently trustworthy, reproducible, and traceable to a specific implementation, configuration, qualification window, and threat model.
 
-
-
 Successful automated execution does not by itself establish full security qualification.
-
-
 
 These four domains are proposed architectural responsibility boundaries rather than obligations currently imposed by the official cFS framework.
 
-
-
 ### 8.3 Integration Without Premature Core Modification
-
-
 
 The initial architectural investigation should avoid making modifications to the portable cFS core a prerequisite.
 
-
-
 Instead, community review should determine whether the security properties can be expressed and evaluated through existing extension mechanisms, external mediation, platform adapters, or mission-controlled integration points.
 
-
-
 Any future integration proposal should explicitly address:
-
-
 
 - Whether every protected execution path passes through the intended authorization boundary.
 
@@ -334,19 +256,11 @@ Any future integration proposal should explicitly address:
 
 - Whether the proposed implementation preserves established portability expectations.
 
-
-
 An architectural interface must not be described as an effective security boundary until its enforcement properties and bypass resistance have been demonstrated.
-
-
 
 ### 8.4 Evidence and Qualification Principles
 
-
-
 The qualification process should preserve the distinction between:
-
-
 
 - Documentary completeness and demonstrated implementation behavior.
 
@@ -360,43 +274,23 @@ The qualification process should preserve the distinction between:
 
 - Successful CI execution and independently reviewed security qualification.
 
-
-
 Every qualification verdict should be traceable through:
-
-
 
 **Normative Requirement → Test Case → Independent Evidence → Qualification Verdict**
 
-
-
 Evidence must also identify the implementation and execution environment to which the verdict applies.
-
-
 
 The Linux/eBPF testbed serves as the initial reference environment. Its demonstrated prototype capabilities and remaining gaps are documented separately in the frozen contract.
 
-
-
 No equivalent guarantees are claimed for other platforms until independently demonstrated.
-
-
 
 Missing, contradictory, incomplete, or untrusted evidence must not result in an unsupported positive qualification verdict.
 
-
-
 ### 8.5 Community Architectural Review Objectives
-
-
 
 The initial interaction with cFS maintainers should seek architectural feedback rather than immediate adoption.
 
-
-
 The principal questions are:
-
-
 
 1. Which proposed security contracts could usefully complement existing cFS architectural responsibilities?
 
@@ -410,87 +304,45 @@ The principal questions are:
 
 6. What review process would be appropriate for independently developed architectural research?
 
-
-
 These questions should be presented without claiming NASA endorsement, flight certification, completed cross-platform qualification, or production readiness.
-
-
 
 ### 8.6 Proposed Community Engagement Sequence
 
-
-
 The next stages should follow an evidence-driven progression:
-
-
 
 **Documentary consolidation:** Cross-review the complete Community Architecture Proposal, preserve the frozen security contract reference, and identify the exact contributions and unresolved questions.
 
-
-
 **Preliminary community feedback:** Seek guidance from cFS maintainers regarding architectural relevance and the appropriate review channel.
-
-
 
 **Reference implementation evidence:** Continue independently evaluating Linux reference capabilities against the frozen requirements, without promoting unverified properties.
 
-
-
 **Cross-platform feasibility:** Investigate additional platform adapters only after their trust boundaries, enforcement mechanisms, and evidence requirements have been defined.
-
-
 
 **Scientific dissemination:** Consider a joint academic or aerospace publication when the architecture, experimental methodology, results, and reproducibility evidence support a defensible research contribution.
 
-
-
 This sequence complements the staged technical roadmap already described in Section 7.
-
-
 
 ### 8.7 Collaboration, Attribution, and Governance
 
-
-
 This proposal represents independent collaborative research.
-
-
 
 Rahad Bhuiya contributes the operational threat model, technical invariant analysis, adapter isolation design, and Linux reference qualification methodology.
 
-
-
 Thales Rangel contributes the architectural framing, cFS integration rationale, proposed authority boundaries, and community review strategy.
-
-
 
 Both contributors participate in cross-review and in the consolidation of the complete proposal.
 
-
-
 Contributor attribution does not imply that either participant has independently verified every technical claim made by the other.
-
-
 
 External submission, changes to frozen normative requirements, and any future joint publication should be subject to explicit mutual review and agreement.
 
-
-
 The frozen `CFS-SEC-CONTRACT-v0.1` baseline must remain distinguishable from subsequent research extensions or implementation changes.
-
-
 
 **Documentary Contribution Status:** DRAFT  -  PENDING JOINT REVIEW
 
-
-
 **Community Submission Status:** NOT_SUBMITTED
 
-
-
 **Platform Qualification Status:** NOT_QUALIFIED
-
-
 
 **NASA Endorsement:** NOT_CLAIMED
 
