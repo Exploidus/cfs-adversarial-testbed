@@ -82,7 +82,7 @@ To ground the architectural requirements, the proposal analyzes five representat
 The architecture is anchored to the six platform-neutral security invariants defined in frozen contract `CFS-SEC-CONTRACT-v0.1` (`cc63eb1`). In strict accordance with the baseline, **all six invariants retain their normative status as DRAFT / NOT_QUALIFIED** until cross-platform flight qualification is independently proven.
 
 > [!IMPORTANT]
-> **Normative Authority & Traceability Baseline:** The 33-requirement traceability matrix and formal specification defined in frozen contract CFS-SEC-CONTRACT-v0.1 serves as the authoritative, normative source for all individual acceptance criteria, trust assumptions, and qualification verdicts. The summary below provides an architectural overview and must not be construed as superseding or replacing the 33-requirement normative matrix.
+> **Normative Authority & Traceability Baseline:** The complete 33-requirement traceability matrix in [`docs/SECURITY_CONTRACT_v01.md`](docs/SECURITY_CONTRACT_v01.md), anchored at frozen commit `cc63eb1`, remains the authoritative source for individual acceptance criteria, independent evidence requirements, and qualification verdicts. The Community Architecture Proposal provides an architectural summary and must not supersede that normative matrix.
 
 ### 3.1 SEC-INV-01: Authorization Before Dispatch
 - **Status:** `DRAFT / NOT_QUALIFIED`
@@ -136,13 +136,16 @@ To evaluate whether the six invariants can be enforced and verified without modi
 
 The matrix below explicitly delineates proposed candidate mechanisms, partially demonstrated reference evidence under isolated testbed conditions, and remaining normative requirement gaps as defined in CFS-SEC-CONTRACT-v0.1:
 
+> [!NOTE]
+> **Authoritative Traceability Reference:** The complete 33-requirement traceability matrix in [`docs/SECURITY_CONTRACT_v01.md`](docs/SECURITY_CONTRACT_v01.md), anchored at frozen commit `cc63eb1`, remains the authoritative source for individual acceptance criteria, independent evidence requirements, and qualification verdicts. The Community Architecture Proposal provides an architectural summary and must not supersede that normative matrix.
+
 | Invariant Reference | Proposed Candidate Mechanism | Demonstrated Reference Scope (Linux Testbed) | Open Requirement Gaps (Unqualified) | Normative Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **SEC-INV-01** (Authorization) | Two-stage identity check + token validation prior to dispatch | Peer identity qualification via SO_PEERCRED on anonymous socketpair (Partial QL-2) | REQ-01.3 (Per-command authorization decisions), REQ-01.5 (Cryptographic audit chaining) | DRAFT / NOT_QUALIFIED |
 | **SEC-INV-02** (Instance Binding) | Platform-native non-reusable lifecycle token binding | Rejection of mismatched process descriptors across process boundaries (Partial QL-2) | REQ-02.3 / REQ-02.4 (Post-restart cryptographic re-binding & non-reusable boot timestamp derivation) | DRAFT / NOT_QUALIFIED |
 | **SEC-INV-03** (Replay & Bypass) | Monotonic sequence enforcement + independent tracepoint observer | Replay detection via sequence check & tamper-evident witness (Partial QL-3) | REQ-03.3 (Pre-effect preventive replay rejection prior to effector invocation) | DRAFT / NOT_QUALIFIED |
-| **SEC-INV-04** (Effect Completion) | 4-tier effect verification ( 	o L_4$) | Distinguishing $ (syscall entry) from $ (pipe sink absorption witness) | REQ-04.2 ($ syscall return byte count witness), REQ-04.4 ($ physical actuator state confirmation) | DRAFT / NOT_QUALIFIED |
-| **SEC-INV-05** (Observation Loss) | Multi-category telemetry accounting | Demonstration of isolated TXN-GAP sequence counter increment | REQ-05.2 (PROD-DROP counter), REQ-05.3 (3-state consumer accounting), REQ-05.6 (Adversarial saturation test) | DRAFT / NOT_QUALIFIED |
+| **SEC-INV-04** (Effect Completion) | 4-tier effect verification (L1 to L4) | Distinguishing L1 (Syscall entry) from L3 (Sink-side absorption witness) | REQ-04.2 (L2: Syscall return byte count witness), REQ-04.4 (L4: Independently verified destination state) | DRAFT / NOT_QUALIFIED |
+| **SEC-INV-05** (Observation Loss) | Multi-category telemetry accounting | Demonstration of isolated TXN-GAP sequence counter increment | REQ-05.2 (PROD-DROP counter), REQ-05.3 (3-state consumer accounting), REQ-05.4 (EOW-UNRESOLVED accounting at qualification-window closure), REQ-05.6 (Adversarial saturation test) | DRAFT / NOT_QUALIFIED |
 | **SEC-INV-06** (Fail-Closed) | Explicit operating mode declaration with fail-closed default | Automated default to NOT_QUALIFIED on missing or degraded evidence | REQ-06.5 (Observer degradation detection), REQ-06.6 (Qualification window coverage accounting) | DRAFT / NOT_QUALIFIED |
 
 ---
