@@ -82,7 +82,7 @@ To ground the architectural requirements, the proposal analyzes five representat
 The architecture is anchored to the six platform-neutral security invariants defined in frozen contract `CFS-SEC-CONTRACT-v0.1` (`cc63eb1`). In strict accordance with the baseline, **all six invariants retain their normative status as DRAFT / NOT_QUALIFIED** until cross-platform flight qualification is independently proven.
 
 > [!IMPORTANT]
-> **Normative Authority & Traceability Baseline:** The complete 33-requirement traceability matrix in [`docs/SECURITY_CONTRACT_v01.md`](docs/SECURITY_CONTRACT_v01.md), anchored at frozen commit `cc63eb1`, remains the authoritative source for individual acceptance criteria, independent evidence requirements, and qualification verdicts. The Community Architecture Proposal provides an architectural summary and must not supersede that normative matrix.
+> **Normative Authority & Traceability Baseline:** The complete 33-requirement traceability matrix in [`docs/SECURITY_CONTRACT_v01.md`](https://github.com/Exploidus/cfs-adversarial-testbed/blob/cc63eb13cc168a7ceca52ae703367065a0228643/docs/SECURITY_CONTRACT_v01.md), anchored at frozen commit `cc63eb1`, remains the authoritative source for individual acceptance criteria, independent evidence requirements, and qualification verdicts. The Community Architecture Proposal provides an architectural summary and must not supersede that normative matrix.
 
 ### 3.1 SEC-INV-01: Authorization Before Dispatch
 - **Status:** `DRAFT / NOT_QUALIFIED`
@@ -137,7 +137,7 @@ To evaluate whether the six invariants can be enforced and verified without modi
 The matrix below explicitly delineates proposed candidate mechanisms, partially demonstrated reference evidence under isolated testbed conditions, and remaining normative requirement gaps as defined in CFS-SEC-CONTRACT-v0.1:
 
 > [!NOTE]
-> **Authoritative Traceability Reference:** The complete 33-requirement traceability matrix in [`docs/SECURITY_CONTRACT_v01.md`](docs/SECURITY_CONTRACT_v01.md), anchored at frozen commit `cc63eb1`, remains the authoritative source for individual acceptance criteria, independent evidence requirements, and qualification verdicts. The Community Architecture Proposal provides an architectural summary and must not supersede that normative matrix.
+> **Authoritative Traceability Reference:** The complete 33-requirement traceability matrix in [`docs/SECURITY_CONTRACT_v01.md`](https://github.com/Exploidus/cfs-adversarial-testbed/blob/cc63eb13cc168a7ceca52ae703367065a0228643/docs/SECURITY_CONTRACT_v01.md), anchored at frozen commit `cc63eb1`, remains the authoritative source for individual acceptance criteria, independent evidence requirements, and qualification verdicts. The Community Architecture Proposal provides an architectural summary and must not supersede that normative matrix.
 
 | Invariant Reference | Proposed Candidate Mechanism | Demonstrated Reference Scope (Linux Testbed) | Open Requirement Gaps (Unqualified) | Normative Status |
 | :--- | :--- | :--- | :--- | :--- |
